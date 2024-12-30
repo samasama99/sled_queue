@@ -1,0 +1,11 @@
+[package]
+name = "sled_queue"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+log = "0.4.22"
+tokio = { version = "1.42.0" , features = ["full"]}
+uuid = { version = "1.11.0", features = ["v4"] }
+uuid_v7 = "0.1.0"
+sled = "0.34.7"
