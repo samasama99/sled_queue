@@ -41,7 +41,8 @@ impl SledEventQueue {
         Ok(())
     }
 
-    pub fn init_actor_proxy(sled_db: Db, size: usize) -> (SledEventQueue, SledQueueProxy) {
+    pub fn init_actor_proxy(queue_name: &str, size: usize) -> (SledEventQueue, SledQueueProxy) {
+        let sled_db = sled::open(queue_name).expect("Failed to open database");
         let (sender, receiver) = mpsc::channel(size);
         let actor = SledEventQueue {
             sled_db,

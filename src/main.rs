@@ -5,10 +5,7 @@ async fn main() {
     let ctrl_c = signal::ctrl_c();
     println!("Press Ctrl+C to exit...");
     println!("starting...");
-    let (sled_event_queue, enqueuer) = sled_queue::SledEventQueue::init_actor_proxy(
-        sled::open("test").expect("opening the sled db should not fail"),
-        128,
-    );
+    let (sled_event_queue, enqueuer) = sled_queue::SledEventQueue::init_actor_proxy("test", 128);
     println!("enqueueing...");
 
     let _loop = tokio::spawn(sled_event_queue.run());
