@@ -2,6 +2,7 @@ use tokio::{select, signal};
 
 #[tokio::main]
 async fn main() {
+    // TODO ADD REAL TESTS
     let ctrl_c = signal::ctrl_c();
     println!("Press Ctrl+C to exit...");
     println!("starting...");
