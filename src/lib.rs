@@ -1,14 +1,8 @@
-use log::{debug, error, info, warn};
-use sled::{Db, Event, IVec};
-use std::fmt::format;
-use std::future::Future;
-use std::sync::{atomic, Mutex};
-use tokio::signal;
-use tokio::sync::broadcast::error::SendError;
+use log::{debug, error, info};
+use sled::Db;
 use tokio::sync::broadcast::Receiver;
 use tokio::sync::{broadcast, mpsc, oneshot};
 use tokio::time::{sleep, Duration};
-use uuid::Uuid;
 use uuid_v7::gen_uuid_v7;
 
 pub enum Command {
@@ -30,7 +24,6 @@ pub enum Command {
 pub struct SledEventQueue {
     pub sled_db: Db,
     pub receiver: mpsc::Receiver<Command>,
-    ready: atomic::AtomicBool,
 }
 
 impl SledEventQueue {
@@ -44,11 +37,7 @@ impl SledEventQueue {
     pub fn init_actor_proxy(queue_name: &str, size: usize) -> (SledEventQueue, SledQueueProxy) {
         let sled_db = sled::open(queue_name).expect("Failed to open database");
         let (sender, receiver) = mpsc::channel(size);
-        let actor = SledEventQueue {
-            sled_db,
-            receiver,
-            ready: Default::default(),
-        };
+        let actor = SledEventQueue { sled_db, receiver };
         let proxy = SledQueueProxy { sender };
         (actor, proxy)
     }
@@ -67,15 +56,25 @@ impl SledEventQueue {
         let sled_db = self.sled_db.clone();
         tokio::spawn(async move {
             loop {
+                if channel_clone.receiver_count() == 0 {
+                    sleep(Duration::from_secs(10)).await;
+                    continue;
+                }
                 tokio::select! {
-                  _ =   if sled_db.is_empty() {
+                   _ =   if sled_db.is_empty() {
                             sleep(Duration::from_secs(10))
                         } else {
-                            if let Err(err) = channel_clone.send(()) {
-                                println!("Error sending message: {:?}", err);
+                            match channel_clone.send(()) {
+                                Ok(count) => {
+                                        info!("sled len: {} receiver count: {} received count: {}", sled_db.len(), channel_clone.receiver_count(), count);
+                                },
+                                Err(err) if channel_clone.receiver_count() != 0 => {
+                                        error!("Error sending message: {:?} sled len: {} receiver count: {}", err, sled_db.len(), channel_clone.receiver_count());
+                                }
+                                _ => ()
                             }
                             sleep(Duration::from_secs(1))
-                        } => debug!("timeout") ,
+                        } => debug!("timeout"),
                   change = sled_db.watch_prefix("") => {
                       debug!("change in queue");
                       if let Some(change) =  change {
